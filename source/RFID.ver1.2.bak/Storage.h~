@@ -1,0 +1,121 @@
+/*
+ * Storage.h - Data structure management, read/write to EEPROM
+ * Creator: sketchpink
+ * Time: 2015.10.1
+ */
+
+#ifndef STORAGE_H
+#define STORAGE_H
+
+#include <EEPROM.h>
+
+ 
+typedef struct Data { 
+	unsigned char cardNum;	
+	unsigned char serNum[5];
+ 	unsigned char balance[3];
+	unsigned char status;
+	
+	Data(){
+		cardNum = 255;
+		for(int i = 0; i < 5; i++)	serNum[i] = 0;
+		for(int i = 0; i < 3; i++)	balance[i] = 0;
+		status = 0;
+	}
+	Data(unsigned char num):cardNum(num){
+		for(int i = 0; i < 5; i++)	serNum[i] = 0;
+		for(int i = 0; i < 3; i++)	balance[i] = 0;
+		status = 0;
+	}
+	void setCardNum(unsigned char num){
+		cardNum = num;
+	}
+ 	
+}Data; //Total 10Byte 
+
+class STORAGE {
+	unsigned char ptr;
+	Data& data;
+	
+public:
+
+	STORAGE(Data& d):data(d), ptr(0){}
+	
+	void ptr2Zero() {
+		ptr = 0;
+	}	
+	bool read(){
+		ptr2Zero();
+		for(; ptr <= 50 && EEPROM.read(ptr * 10) != data.cardNum; ptr++);
+		if(ptr > 50 || !EEPROM.read(ptr * 10)) return 0;
+		else {
+			for(int i = 0; i < 5; i++) 
+				data.serNum[i] = EEPROM.read(ptr * 10 + 1 + i); 
+			for(int i = 0; i < 3; i++)
+				data.balance[i] = EEPROM.read(ptr * 10 + 6 + i);
+			data.status = EEPROM.read(ptr * 10 + 9);
+			return 1;
+		}
+	}
+	bool write(){
+		ptr2Zero();
+		for(; ptr <= 50 && EEPROM.read(ptr * 10) != data.cardNum; ptr++);
+		if(ptr > 50 || !EEPROM.read(ptr * 10)) return 0;
+		else {
+			for(int i = 0; i < 5; i++) 
+				EEPROM.write(ptr * 10 + 1 + i, data.serNum[i]); 
+			for(int i = 0; i < 3; i++)
+				EEPROM.write(ptr * 10 + 6 + i, data.balance[i]);
+			EEPROM.write(ptr * 10 + 9, data.status);
+			
+			return 1;
+		}
+	}
+	bool writeCardNum(unsigned char n){
+		ptr2Zero();
+		for(; ptr <= 50 && EEPROM.read(ptr * 10) != data.cardNum; ptr++);
+		if(ptr > 50 || !EEPROM.read(ptr * 10)) return 0;
+		else {
+			EEPROM.write(ptr * 10, n);
+			return 1;
+		}
+	}
+	unsigned char create(){
+		
+		for(ptr2Zero(); ptr <= 50 && EEPROM.read(ptr * 10); ptr++);
+		if(ptr > 50) return 0; // No enough free block
+		else {
+			EEPROM.write(ptr * 10, ptr + 1);	// cardNum == ptr + 1
+			for(int i = 0; i < 5; i++) 
+				EEPROM.write(ptr * 10 + 1 + i, data.serNum[i]);
+			for(int i = 0; i < 3; i++)
+				EEPROM.write(ptr * 10 + 6 + i, data.balance[i]);
+			EEPROM.write(ptr * 10 + 9, data.status);
+			
+			return ptr + 1;
+			
+		}
+	}
+	bool erase(){
+		ptr = data.cardNum - 1;
+		if (ptr <= 50) {
+			EEPROM.write(ptr, 0);
+			return 1;
+		}
+		return 0;		
+	}
+	unsigned char counter(){
+		
+		for (ptr = 50; !EEPROM.read(ptr * 10) && ptr > 0; ptr--);
+		return EEPROM.read(ptr * 10);
+		
+	}
+	static void flushDataBase(){
+		int address = 0;
+		for (; address < 512; address++) EEPROM.write(address, 0);
+	}
+	
+};
+
+#endif
+
